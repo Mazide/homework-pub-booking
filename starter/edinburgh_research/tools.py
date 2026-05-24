@@ -14,10 +14,14 @@ The grader checks for:
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
+from sovereign_agent.errors import ToolError
 from sovereign_agent.session.directory import Session
 from sovereign_agent.tools.registry import ToolRegistry, ToolResult, _RegisteredTool
+
+from starter.edinburgh_research.integrity import _TOOL_CALL_LOG, record_tool_call
 
 _SAMPLE_DATA = Path(__file__).parent / "sample_data"
 
@@ -41,9 +45,59 @@ def venue_search(near: str, party_size: int, budget_max_gbp: int = 1000) -> Tool
     MUST call record_tool_call(...) before returning so the integrity
     check can see what data was produced.
     """
-    # TODO 1a: load venues.json. Raise ToolError(SA_TOOL_DEPENDENCY_MISSING)
-    #          if the file is absent.
-    raise NotImplementedError("TODO 1: implement venue_search")
+    arguments = {"near": near, "party_size": party_size, "budget_max_gbp": budget_max_gbp}
+
+    # Spiral guard — defense-in-depth against LLMs that keep re-searching
+    # instead of using the results they already have. See
+    # docs/real-mode-failures.md §"Ex5 — Qwen3-32B spiral".
+    prior_searches = sum(1 for r in _TOOL_CALL_LOG if r.tool_name == "venue_search")
+    if prior_searches >= 3:
+        output = {"error": "too_many_searches", "count": prior_searches}
+        summary = (
+            f"STOP calling venue_search ({prior_searches} prior calls); "
+            "use the results you already have."
+        )
+        record_tool_call("venue_search", arguments, output)
+        return ToolResult(success=False, output=output, summary=summary)
+
+    # Load fixture. Missing file is a dependency error, not a runtime crash.
+    venues_path = _SAMPLE_DATA / "venues.json"
+    if not venues_path.exists():
+        raise ToolError(
+            code="SA_TOOL_DEPENDENCY_MISSING",
+            message=f"venues fixture not found: {venues_path}",
+            context={"path": str(venues_path)},
+        )
+
+    try:
+        venues = json.loads(venues_path.read_text())
+    except json.JSONDecodeError as exc:
+        raise ToolError(
+            code="SA_TOOL_DEPENDENCY_MISSING",
+            message=f"venues fixture is not valid JSON: {exc}",
+            context={"path": str(venues_path)},
+            cause=exc,
+        ) from exc
+
+    needle = (near or "").strip().lower()
+    results = [
+        v
+        for v in venues
+        if v.get("open_now") is True
+        and needle in v.get("area", "").lower()
+        and v.get("seats_available_evening", 0) >= party_size
+        and v.get("hire_fee_gbp", 0) + v.get("min_spend_gbp", 0) <= budget_max_gbp
+    ]
+
+    output = {
+        "near": near,
+        "party_size": party_size,
+        "results": results,
+        "count": len(results),
+    }
+    summary = f"venue_search({near}, party={party_size}): {len(results)} result(s)"
+    record_tool_call("venue_search", arguments, output)
+    return ToolResult(success=True, output=output, summary=summary)
 
 
 # ---------------------------------------------------------------------------
@@ -61,7 +115,63 @@ def get_weather(city: str, date: str) -> ToolResult:
 
     MUST call record_tool_call(...) before returning.
     """
-    raise NotImplementedError("TODO 2: implement get_weather")
+    arguments = {"city": city, "date": date}
+
+    weather_path = _SAMPLE_DATA / "weather.json"
+    if not weather_path.exists():
+        raise ToolError(
+            code="SA_TOOL_DEPENDENCY_MISSING",
+            message=f"weather fixture not found: {weather_path}",
+            context={"path": str(weather_path)},
+        )
+
+    try:
+        weather = json.loads(weather_path.read_text())
+    except json.JSONDecodeError as exc:
+        raise ToolError(
+            code="SA_TOOL_DEPENDENCY_MISSING",
+            message=f"weather fixture is not valid JSON: {exc}",
+            context={"path": str(weather_path)},
+            cause=exc,
+        ) from exc
+
+    city_key = (city or "").strip().lower()
+    city_data = weather.get(city_key)
+    if city_data is None:
+        output = {"error": "city_not_found", "city": city, "date": date}
+        summary = f"get_weather({city}, {date}): city not in fixture"
+        record_tool_call("get_weather", arguments, output)
+        return ToolResult(
+            success=False,
+            output=output,
+            summary=summary,
+            error=ToolError(
+                code="SA_TOOL_INVALID_INPUT",
+                message=f"unknown city: {city!r}",
+                context={"city": city, "available": sorted(weather.keys())},
+            ),
+        )
+
+    day = city_data.get(date)
+    if day is None:
+        output = {"error": "date_not_found", "city": city, "date": date}
+        summary = f"get_weather({city}, {date}): date not in fixture"
+        record_tool_call("get_weather", arguments, output)
+        return ToolResult(
+            success=False,
+            output=output,
+            summary=summary,
+            error=ToolError(
+                code="SA_TOOL_INVALID_INPUT",
+                message=f"no weather for {city!r} on {date!r}",
+                context={"city": city, "date": date, "available": sorted(city_data.keys())},
+            ),
+        )
+
+    output = {"city": city, "date": date, **day}
+    summary = f"get_weather({city}, {date}): {day['condition']}, {day['temperature_c']}C"
+    record_tool_call("get_weather", arguments, output)
+    return ToolResult(success=True, output=output, summary=summary)
 
 
 # ---------------------------------------------------------------------------
@@ -98,7 +208,114 @@ def calculate_cost(
 
     MUST call record_tool_call(...) before returning.
     """
-    raise NotImplementedError("TODO 3: implement calculate_cost")
+    arguments = {
+        "venue_id": venue_id,
+        "party_size": party_size,
+        "duration_hours": duration_hours,
+        "catering_tier": catering_tier,
+    }
+
+    catering_path = _SAMPLE_DATA / "catering.json"
+    venues_path = _SAMPLE_DATA / "venues.json"
+    for p in (catering_path, venues_path):
+        if not p.exists():
+            raise ToolError(
+                code="SA_TOOL_DEPENDENCY_MISSING",
+                message=f"fixture not found: {p}",
+                context={"path": str(p)},
+            )
+
+    try:
+        catering = json.loads(catering_path.read_text())
+        venues = json.loads(venues_path.read_text())
+    except json.JSONDecodeError as exc:
+        raise ToolError(
+            code="SA_TOOL_DEPENDENCY_MISSING",
+            message=f"fixture is not valid JSON: {exc}",
+            context={"catering": str(catering_path), "venues": str(venues_path)},
+            cause=exc,
+        ) from exc
+
+    base_rates = catering["base_rates_gbp_per_head"]
+    venue_modifiers = catering["venue_modifiers"]
+    service_charge_pct = catering["service_charge_percent"]
+
+    if catering_tier not in base_rates:
+        output = {"error": "unknown_catering_tier", "catering_tier": catering_tier}
+        summary = f"calculate_cost: unknown catering_tier {catering_tier!r}"
+        record_tool_call("calculate_cost", arguments, output)
+        return ToolResult(
+            success=False,
+            output=output,
+            summary=summary,
+            error=ToolError(
+                code="SA_TOOL_INVALID_INPUT",
+                message=f"unknown catering_tier: {catering_tier!r}",
+                context={"available": sorted(base_rates.keys())},
+            ),
+        )
+
+    if venue_id not in venue_modifiers:
+        output = {"error": "unknown_venue", "venue_id": venue_id}
+        summary = f"calculate_cost: unknown venue_id {venue_id!r}"
+        record_tool_call("calculate_cost", arguments, output)
+        return ToolResult(
+            success=False,
+            output=output,
+            summary=summary,
+            error=ToolError(
+                code="SA_TOOL_INVALID_INPUT",
+                message=f"unknown venue_id: {venue_id!r}",
+                context={"available": sorted(venue_modifiers.keys())},
+            ),
+        )
+
+    venue = next((v for v in venues if v.get("id") == venue_id), None)
+    if venue is None:
+        output = {"error": "venue_not_in_venues_fixture", "venue_id": venue_id}
+        summary = f"calculate_cost: venue {venue_id!r} missing from venues.json"
+        record_tool_call("calculate_cost", arguments, output)
+        return ToolResult(
+            success=False,
+            output=output,
+            summary=summary,
+            error=ToolError(
+                code="SA_TOOL_INVALID_INPUT",
+                message=f"venue_id {venue_id!r} not in venues fixture",
+                context={"venue_id": venue_id},
+            ),
+        )
+
+    base_per_head = base_rates[catering_tier]
+    venue_mult = venue_modifiers[venue_id]
+    effective_hours = max(1, duration_hours)
+    subtotal = base_per_head * venue_mult * party_size * effective_hours
+    service = subtotal * service_charge_pct / 100
+    total = subtotal + service + venue.get("hire_fee_gbp", 0) + venue.get("min_spend_gbp", 0)
+
+    if total < 300:
+        deposit = 0
+    elif total <= 1000:
+        deposit = total * 0.20
+    else:
+        deposit = total * 0.30
+
+    output = {
+        "venue_id": venue_id,
+        "party_size": party_size,
+        "duration_hours": duration_hours,
+        "catering_tier": catering_tier,
+        "subtotal_gbp": int(round(subtotal)),
+        "service_gbp": int(round(service)),
+        "total_gbp": int(round(total)),
+        "deposit_required_gbp": int(round(deposit)),
+    }
+    summary = (
+        f"calculate_cost({venue_id}, party={party_size}): "
+        f"total £{output['total_gbp']}, deposit £{output['deposit_required_gbp']}"
+    )
+    record_tool_call("calculate_cost", arguments, output)
+    return ToolResult(success=True, output=output, summary=summary)
 
 
 # ---------------------------------------------------------------------------
@@ -126,7 +343,76 @@ def generate_flyer(session: Session, event_details: dict) -> ToolResult:
     IMPORTANT: this tool MUST be registered with parallel_safe=False
     because it writes a file.
     """
-    raise NotImplementedError("TODO 4: implement generate_flyer")
+    arguments = {"event_details": dict(event_details)}
+
+    def field_str(key: str, default: str = "") -> str:
+        val = event_details.get(key, default)
+        return "" if val is None else str(val)
+
+    venue_name = field_str("venue_name")
+    venue_address = field_str("venue_address")
+    date = field_str("date")
+    time = field_str("time")
+    party_size = field_str("party_size")
+    condition = field_str("condition")
+    temperature_c = field_str("temperature_c")
+    total_gbp = field_str("total_gbp")
+    deposit_gbp = field_str("deposit_required_gbp")
+
+    html = f"""<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Event Flyer — {venue_name}</title>
+<style>
+  body {{ font-family: system-ui, sans-serif; max-width: 640px; margin: 2em auto; padding: 1em; color: #222; }}
+  h1 {{ font-size: 1.8em; margin-bottom: 0.2em; }}
+  dl {{ display: grid; grid-template-columns: max-content 1fr; gap: 0.4em 1em; }}
+  dt {{ font-weight: 600; color: #555; }}
+  section {{ margin-top: 1.5em; padding-top: 1em; border-top: 1px solid #ddd; }}
+</style>
+</head>
+<body>
+  <h1 data-testid="venue_name">{venue_name}</h1>
+  <p data-testid="venue_address">{venue_address}</p>
+
+  <section>
+    <h2>Event</h2>
+    <dl>
+      <dt>Date</dt><dd data-testid="date">{date}</dd>
+      <dt>Time</dt><dd data-testid="time">{time}</dd>
+      <dt>Party size</dt><dd data-testid="party_size">{party_size}</dd>
+    </dl>
+  </section>
+
+  <section>
+    <h2>Weather</h2>
+    <dl>
+      <dt>Condition</dt><dd data-testid="condition">{condition}</dd>
+      <dt>Temperature</dt><dd data-testid="temperature_c">{temperature_c}C</dd>
+    </dl>
+  </section>
+
+  <section>
+    <h2>Cost</h2>
+    <dl>
+      <dt>Total</dt><dd data-testid="total">£{total_gbp}</dd>
+      <dt>Deposit required</dt><dd data-testid="deposit">£{deposit_gbp}</dd>
+    </dl>
+  </section>
+</body>
+</html>
+"""
+
+    flyer_path = session.path("workspace/flyer.html")
+    flyer_path.parent.mkdir(parents=True, exist_ok=True)
+    bytes_written = flyer_path.write_text(html, encoding="utf-8")
+
+    rel_path = "workspace/flyer.html"
+    output = {"path": rel_path, "bytes_written": bytes_written}
+    summary = f"generate_flyer: wrote {rel_path} ({len(html)} chars)"
+    record_tool_call("generate_flyer", arguments, output)
+    return ToolResult(success=True, output=output, summary=summary)
 
 
 # ---------------------------------------------------------------------------
