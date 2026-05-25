@@ -96,7 +96,7 @@ def _build_fake_client() -> FakeLLMClient:
     complete_call = ToolCall(
         id="c5",
         name="complete_task",
-        arguments={"result": {"flyer": "workspace/flyer.html", "venue": "haymarket_tap"}},
+        arguments={"result": {"flyer": "workspace/flyer.md", "venue": "haymarket_tap"}},
     )
 
     return FakeLLMClient(
@@ -106,7 +106,7 @@ def _build_fake_client() -> FakeLLMClient:
             ScriptedResponse(tool_calls=[flyer_call]),
             ScriptedResponse(tool_calls=[complete_call]),
             ScriptedResponse(content="Subgoal 1 complete."),
-            ScriptedResponse(content="Booking researched; flyer at workspace/flyer.html."),
+            ScriptedResponse(content="Booking researched; flyer at workspace/flyer.md."),
             ScriptedResponse(content="Task complete."),
         ]
     )
@@ -256,7 +256,7 @@ async def run_scenario(real: bool) -> int:
             r = t.read_result()
             print(f"  {t.ticket_id}  {t.operation:50s}  {r.state.value}")
 
-        flyer_path = session.workspace_dir / "flyer.html"
+        flyer_path = session.workspace_dir / "flyer.md"
         if not flyer_path.exists():
             print("\n✗ No flyer written to workspace/. Ex5 failed.")
             from starter.edinburgh_research.integrity import _TOOL_CALL_LOG

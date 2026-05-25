@@ -359,58 +359,40 @@ def generate_flyer(session: Session, event_details: dict) -> ToolResult:
     total_gbp = field_str("total_gbp")
     deposit_gbp = field_str("deposit_required_gbp")
 
-    html = f"""<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<title>Event Flyer — {venue_name}</title>
-<style>
-  body {{ font-family: system-ui, sans-serif; max-width: 640px; margin: 2em auto; padding: 1em; color: #222; }}
-  h1 {{ font-size: 1.8em; margin-bottom: 0.2em; }}
-  dl {{ display: grid; grid-template-columns: max-content 1fr; gap: 0.4em 1em; }}
-  dt {{ font-weight: 600; color: #555; }}
-  section {{ margin-top: 1.5em; padding-top: 1em; border-top: 1px solid #ddd; }}
-</style>
-</head>
-<body>
-  <h1 data-testid="venue_name">{venue_name}</h1>
-  <p data-testid="venue_address">{venue_address}</p>
+    md = f"""# {venue_name}
 
-  <section>
-    <h2>Event</h2>
-    <dl>
-      <dt>Date</dt><dd data-testid="date">{date}</dd>
-      <dt>Time</dt><dd data-testid="time">{time}</dd>
-      <dt>Party size</dt><dd data-testid="party_size">{party_size}</dd>
-    </dl>
-  </section>
+{venue_address}
 
-  <section>
-    <h2>Weather</h2>
-    <dl>
-      <dt>Condition</dt><dd data-testid="condition">{condition}</dd>
-      <dt>Temperature</dt><dd data-testid="temperature_c">{temperature_c}C</dd>
-    </dl>
-  </section>
+## Event
 
-  <section>
-    <h2>Cost</h2>
-    <dl>
-      <dt>Total</dt><dd data-testid="total">£{total_gbp}</dd>
-      <dt>Deposit required</dt><dd data-testid="deposit">£{deposit_gbp}</dd>
-    </dl>
-  </section>
-</body>
-</html>
+| Field | Value |
+|---|---|
+| Date | {date} |
+| Time | {time} |
+| Party size | {party_size} |
+
+## Weather
+
+| Field | Value |
+|---|---|
+| Condition | {condition} |
+| Temperature | {temperature_c}C |
+
+## Cost
+
+| Field | Value |
+|---|---|
+| Total | £{total_gbp} |
+| Deposit required | £{deposit_gbp} |
 """
 
-    flyer_path = session.path("workspace/flyer.html")
+    flyer_path = session.path("workspace/flyer.md")
     flyer_path.parent.mkdir(parents=True, exist_ok=True)
-    bytes_written = flyer_path.write_text(html, encoding="utf-8")
+    bytes_written = flyer_path.write_text(md, encoding="utf-8")
 
-    rel_path = "workspace/flyer.html"
+    rel_path = "workspace/flyer.md"
     output = {"path": rel_path, "bytes_written": bytes_written}
-    summary = f"generate_flyer: wrote {rel_path} ({len(html)} chars)"
+    summary = f"generate_flyer: wrote {rel_path} ({len(md)} chars)"
     record_tool_call("generate_flyer", arguments, output)
     return ToolResult(success=True, output=output, summary=summary)
 
