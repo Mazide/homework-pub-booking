@@ -1,0 +1,35 @@
+{
+  "subgoal_id": "sg_1",
+  "success": true,
+  "final_answer": "(handoff requested)",
+  "tool_calls_made": [
+    {
+      "name": "handoff_to_structured",
+      "arguments": {
+        "reason": "Need area (near) and party size to search for venues",
+        "context": "Selecting Edinburgh venue requires location and group size parameters",
+        "data": {
+          "missing_parameters": [
+            "near",
+            "party_size"
+          ]
+        }
+      },
+      "success": true,
+      "summary": "handoff to structured half: Need area (near) and party size to search for venues",
+      "requires_human_approval": false
+    }
+  ],
+  "turns_used": 1,
+  "handoff_requested": true,
+  "handoff_payload": {
+    "reason": "Need area (near) and party size to search for venues",
+    "context": "Selecting Edinburgh venue requires location and group size parameters",
+    "data": {
+      "missing_parameters": [
+        "near",
+        "party_size"
+      ]
+    }
+  }
+}

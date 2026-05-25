@@ -1,0 +1,85 @@
+{
+  "subgoal_id": "sg_1",
+  "success": true,
+  "final_answer": "(handoff requested)",
+  "tool_calls_made": [
+    {
+      "name": "venue_search",
+      "arguments": {
+        "near": "Edinburgh Old Town",
+        "party_size": 10
+      },
+      "success": true,
+      "summary": "venue_search(Edinburgh Old Town, party=10): 0 result(s)",
+      "requires_human_approval": false
+    },
+    {
+      "name": "venue_search",
+      "arguments": {
+        "near": "Edinburgh City Center",
+        "party_size": 20
+      },
+      "success": true,
+      "summary": "venue_search(Edinburgh City Center, party=20): 0 result(s)",
+      "requires_human_approval": false
+    },
+    {
+      "name": "venue_search",
+      "arguments": {
+        "near": "Edinburgh",
+        "party_size": 5
+      },
+      "success": true,
+      "summary": "venue_search(Edinburgh, party=5): 0 result(s)",
+      "requires_human_approval": false
+    },
+    {
+      "name": "handoff_to_structured",
+      "arguments": {
+        "reason": "Venue search tool is returning zero results for all parameter combinations, requiring human investigation",
+        "context": "Three venue_search attempts with different parameters all returned 0 results",
+        "data": {
+          "search_attempts": [
+            {
+              "near": "Edinburgh Old Town",
+              "party_size": 10
+            },
+            {
+              "near": "Edinburgh City Center",
+              "party_size": 20
+            },
+            {
+              "near": "Edinburgh",
+              "party_size": 5
+            }
+          ]
+        }
+      },
+      "success": true,
+      "summary": "handoff to structured half: Venue search tool is returning zero results for all parameter combinations, requiring human investigation",
+      "requires_human_approval": false
+    }
+  ],
+  "turns_used": 4,
+  "handoff_requested": true,
+  "handoff_payload": {
+    "reason": "Venue search tool is returning zero results for all parameter combinations, requiring human investigation",
+    "context": "Three venue_search attempts with different parameters all returned 0 results",
+    "data": {
+      "search_attempts": [
+        {
+          "near": "Edinburgh Old Town",
+          "party_size": 10
+        },
+        {
+          "near": "Edinburgh City Center",
+          "party_size": 20
+        },
+        {
+          "near": "Edinburgh",
+          "party_size": 5
+        }
+      ]
+    }
+  }
+}

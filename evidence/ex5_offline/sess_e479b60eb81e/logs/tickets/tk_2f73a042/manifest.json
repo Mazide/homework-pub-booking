@@ -1,0 +1,20 @@
+{
+  "ticket_id": "tk_2f73a042",
+  "operation": "executor.run_subgoal/sg_2",
+  "started_at": "2026-05-25T14:00:33.048601+00:00",
+  "completed_at": "2026-05-25T14:00:33.048755+00:00",
+  "duration_ms": 0,
+  "outputs": [
+    {
+      "path": "evidence/ex5_offline/sess_e479b60eb81e/logs/tickets/tk_2f73a042/raw_output.json",
+      "sha256": "b2e273f4e635a4858e53a80c37008cd6175b1a2cd75dd713d8596f371eb39be6",
+      "size_bytes": 216,
+      "content_type": "application/json"
+    }
+  ],
+  "metrics": {
+    "tool_calls": 0,
+    "turns_used": 1,
+    "handoff_requested": false
+  }
+}

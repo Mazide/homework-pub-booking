@@ -1,0 +1,20 @@
+{
+  "ticket_id": "tk_41a158c8",
+  "operation": "executor.run_subgoal/sg_1",
+  "started_at": "2026-05-25T14:00:33.046774+00:00",
+  "completed_at": "2026-05-25T14:00:33.047790+00:00",
+  "duration_ms": 1,
+  "outputs": [
+    {
+      "path": "evidence/ex5_offline/sess_e479b60eb81e/logs/tickets/tk_41a158c8/raw_output.json",
+      "sha256": "efa9921c5451f875fd4c92b352d7a629418c166bb3e9d9b6b8c2d2e6e07ac3b7",
+      "size_bytes": 1945,
+      "content_type": "application/json"
+    }
+  ],
+  "metrics": {
+    "tool_calls": 5,
+    "turns_used": 4,
+    "handoff_requested": false
+  }
+}

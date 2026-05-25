@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "from_half": "loop",
+  "to_half": "structured",
+  "written_at": "2026-05-25T14:04:09.004050+00:00",
+  "session_id": "sess_7d723426b7b7",
+  "reason": "Venue search tool is returning zero results for all parameter combinations, requiring human investigation",
+  "context": "Three venue_search attempts with different parameters all returned 0 results",
+  "data": {
+    "search_attempts": [
+      {
+        "near": "Edinburgh Old Town",
+        "party_size": 10
+      },
+      {
+        "near": "Edinburgh City Center",
+        "party_size": 20
+      },
+      {
+        "near": "Edinburgh",
+        "party_size": 5
+      }
+    ]
+  },
+  "return_instructions": ""
+}
