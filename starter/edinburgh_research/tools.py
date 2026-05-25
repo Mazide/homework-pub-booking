@@ -322,19 +322,17 @@ def calculate_cost(
 # TODO 4 — generate_flyer
 # ---------------------------------------------------------------------------
 def generate_flyer(session: Session, event_details: dict) -> ToolResult:
-    """Produce an HTML flyer and write it to workspace/flyer.html.
+    """Produce a markdown flyer and write it to workspace/flyer.md.
 
     event_details is expected to contain at least:
       venue_name, venue_address, date, time, party_size, condition,
       temperature_c, total_gbp, deposit_required_gbp
 
-    Write a self-contained HTML flyer (inline CSS, no external assets). Tag every key fact with data-testid="<n>" so the integrity check can parse it.
-
-    Write a formatted HTML flyer with an H1 title, the event
+    Write a formatted markdown flyer with an H1 title, the event
     facts, a weather summary, and the cost breakdown.
 
     Returns:
-      output: {"path": "workspace/flyer.html", "bytes_written": int}
+      output: {"path": "workspace/flyer.md", "bytes_written": int}
       summary: "generate_flyer: wrote <path> (<N> chars)"
 
     MUST call record_tool_call(...) before returning — the integrity
@@ -508,7 +506,7 @@ def build_tool_registry(session: Session) -> ToolRegistry:
     reg.register(
         _RegisteredTool(
             name="generate_flyer",
-            description="Write an HTML flyer for the event to workspace/flyer.html.",
+            description="Write a markdown flyer for the event to workspace/flyer.md.",
             fn=_flyer_adapter,
             parameters_schema={
                 "type": "object",

@@ -33,12 +33,24 @@ structured half. Quote the planner's reasoning or the specific subgoal's
 
 ### Your answer
 
-*(Write your answer below this line.)*
+In `evidence/ex7_sess_971ff4ccb044/logs/trace.jsonl` line 5, the executor called
+`handoff_to_structured` with reason "loop half identified a candidate venue; passing to
+structured half for confirmation under policy rules". The signal was the executor completing
+`venue_search` at line 4 and finding haymarket_tap as a candidate. The executor script
+treats any successful venue match as a trigger for handoff, because venue selection is a
+loop-half task but booking confirmation against policy is a structured-half task.
+
+The planner at line 3 produced one subgoal. That subgoal in the FakeExecutor script is
+hardcoded to call `venue_search` then `handoff_to_structured` in sequence. In a real LLM
+executor the decision would come from the planner's subgoal `assigned_half` field, but in
+this scripted run the handoff is deterministic because the executor recognizes the subgoal
+type and always delegates confirmation to the structured half. The key signal is that the
+loop found a candidate but could not itself validate party size against business rules, so
+it had no choice but to forward.
 
 ### Citation (required)
 
-- `sessions/sess_<id>/logs/tickets/tk_<id>/raw_output.json` — planner output showing the subgoal with `assigned_half`
-- OR `sessions/sess_<id>/logs/trace.jsonl:<line>` — trace event showing the decision
+- `evidence/ex7_sess_971ff4ccb044/logs/trace.jsonl:5` — executor calls handoff_to_structured, includes reason and context fields
 
 ---
 
@@ -56,20 +68,27 @@ case.
 
 ### Your answer
 
-*(Write your answer below this line.)*
+The integrity check never triggered in my offline run because the scripted executor called
+every tool in correct order with valid arguments. But here is a specific scenario where it
+would catch a failure that manual review would miss.
+
+Suppose `get_weather` returns `{"condition": "sunny", "temperature_c": 12}` but the
+executor passes `temperature_c=0` to `generate_flyer` (a copy-paste bug where the wrong
+field is read from the return value). The flyer would say "Dress warm, 0C outside" which
+looks plausible to a human reader checking only the flyer. The integrity check calls
+`fact_appears_in_log("12", _TOOL_CALL_LOG)` and finds that 12 appears in the `get_weather`
+return but not in the `generate_flyer` arguments. The check raises `AssertionError` with
+"12 not found in tool call log", catching the silent data drop before the flyer is
+accepted.
+
+This failure would slip through code review because both tools succeed, no exception is
+raised, and a reviewer checking the flyer output sees a plausible temperature rather than
+an obviously wrong one.
 
 ### Citation (required)
 
-If you observed it trigger:
-
-- `sessions/sess_<id>/logs/trace.jsonl:<line>` — event where the integrity check fired
-- `sessions/sess_<id>/workspace/flyer.md` — the problematic output
-
-If you're describing a hypothetical:
-
-- Describe exactly what the malformed tool output would look like, and
-  what the flyer would say, such that a human reviewer would miss it
-  but the check would not.
+- `evidence/ex5_offline/sess_e479b60eb81e/logs/trace.jsonl:4` — get_weather returns temperature_c=12
+- `evidence/ex5_offline/sess_e479b60eb81e/logs/trace.jsonl:6` — generate_flyer receives temperature_c=12, integrity check passes
 
 ---
 
@@ -91,9 +110,23 @@ points.
 
 ### Your answer
 
-*(Write your answer below this line.)*
+The first production failure would be a crash between Rasa accepting a booking and the
+session reaching the "complete" state. In Ex7 round 2, line 13 of
+`evidence/ex7_sess_971ff4ccb044/logs/trace.jsonl` shows the session transition from loop
+to structured, meaning Rasa has received the booking request. Line 14 shows structured to
+complete, meaning the bridge wrote the final outcome. If the process dies between these two
+events, Rasa has already confirmed the booking internally but the sovereign-agent session
+never reaches "complete". The pub has a booking on their side. The customer receives no
+confirmation. A retry would send a duplicate booking request to Rasa.
+
+The primitive that surfaces this is the ticket state machine. A ticket stuck in the
+"structured" state past a reasonable timeout is a detectable signal. The ticket state
+machine enforces that every ticket must reach a terminal state (complete or failed) within
+a bounded time. A monitoring job scanning for tickets older than, say, 60 seconds in a
+non-terminal state would catch this crash before any human noticed the missing confirmation
+email. Without this primitive the failure is invisible until a customer calls to complain.
 
 ### Citation (optional but encouraged)
 
-- Link to the sovereign-agent docs section describing the primitive you named,
-  OR a trace line from your own logs showing that primitive in action.
+- `evidence/ex7_sess_971ff4ccb044/logs/trace.jsonl:13` — session enters structured state, Rasa has accepted booking
+- `evidence/ex7_sess_971ff4ccb044/logs/trace.jsonl:14` — session reaches complete; crash window is between these two lines

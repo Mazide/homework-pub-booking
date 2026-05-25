@@ -1,0 +1,6 @@
+{"event_type": "voice.utterance_in", "actor": "user", "timestamp": "2026-05-25T11:37:44.216500+00:00", "payload": {"text": "Hi, I'd like to book for 6 people on April 25th at 7:30pm", "turn": 0, "mode": "text"}}
+{"event_type": "voice.utterance_out", "actor": "manager", "timestamp": "2026-05-25T11:37:49.340772+00:00", "payload": {"text": "Aye, we can do that. I'll pencil you in for April 25th at 7:30pm. What's the contact number?", "turn": 0, "mode": "text"}}
+{"event_type": "voice.utterance_in", "actor": "user", "timestamp": "2026-05-25T11:37:49.341287+00:00", "payload": {"text": "The deposit would be around \u00a3150", "turn": 1, "mode": "text"}}
+{"event_type": "voice.utterance_out", "actor": "manager", "timestamp": "2026-05-25T11:37:56.806975+00:00", "payload": {"text": "Aye, we can do that. I'll pencil you in for April 25th at 7:30pm. What's the contact number?", "turn": 1, "mode": "text"}}
+{"event_type": "voice.utterance_in", "actor": "user", "timestamp": "2026-05-25T11:37:56.807778+00:00", "payload": {"text": "goodbye", "turn": 2, "mode": "text"}}
+{"event_type": "voice.utterance_out", "actor": "manager", "timestamp": "2026-05-25T11:37:57.420118+00:00", "payload": {"text": "Cheerio.", "turn": 2, "mode": "text"}}
